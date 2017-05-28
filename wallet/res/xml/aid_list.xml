@@ -7,6 +7,6 @@
 
     <aid-group android:description="@string/app_name" android:category="payment">
         <aid-filter android:name="325041592E5359532E4444463031" />
-        <aid-filter android:name="424954434F494E" />
+        <aid-filter android:name="426974636F696E" />
     </aid-group>
 </host-apdu-service>
