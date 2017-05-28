@@ -7,7 +7,7 @@
     android:versionName="5.21-test" >
 
     <uses-sdk
-        android:minSdkVersion="16"
+        android:minSdkVersion="19"
         android:targetSdkVersion="25"
         tools:ignore="OldTargetApi" />
 
@@ -30,6 +30,9 @@
         android:required="false" />
     <uses-feature
         android:name="android.hardware.nfc"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.nfc.hce"
         android:required="false" />
     <uses-feature
         android:name="android.hardware.camera"
@@ -238,6 +241,18 @@
         <service
             android:name="de.schildbach.wallet.service.InactivityNotificationService"
             android:exported="false" />
+        <service
+            android:name="de.schildbach.wallet.service.CardService"
+            android:exported="true"
+            android:permission="android.permission.BIND_NFC_SERVICE">
+            <intent-filter>
+                <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <meta-data
+                android:name="android.nfc.cardemulation.host_apdu_service"
+                android:resource="@xml/aid_list" />
+        </service>
 
         <meta-data
             android:name="android.nfc.disable_beam_default"

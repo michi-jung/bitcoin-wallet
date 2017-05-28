@@ -8,3 +8,6 @@ local.properties
 *.iml
 bin/
 gen/
+gradle/
+gradlew
+gradlew.bat
