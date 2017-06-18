@@ -17,6 +17,9 @@
     <string name="wallet_balance_fragment_insecure_device">Dein Gerät ist alt und unsicher. Bitte nutze es nur für kleine Beträge.</string>
     <string name="wallet_balance_fragment_too_much">Dieser Wert ist recht hoch, um in der Tasche getragen zu werden. Bitte verschiebe etwas an einen sichereren Ort.</string>
     <string name="wallet_balance_fragment_replaying">Guthaben ist während des Replays nicht verfügbar.</string>
+    <string name="tap_to_send_coins_activity_title">Telefon erneut vorhalten, um Bitcoins zu senden</string>
+    <string name="tap_to_send_coins_payment_reason_label">Verwendungszweck</string>
+    <string name="tap_to_send_coins_fees_label">Transaktionsgebühr</string>
     <string name="exchange_rates_activity_title">Wechselkurse</string>
     <string name="exchange_rates_fragment_empty_text">Kann Wechselkurse nicht laden.</string>
     <string name="exchange_rates_fragment_empty_search">Kann Wechselkurs nicht finden.</string>

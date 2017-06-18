@@ -1,6 +1,9 @@
 package de.schildbach.wallet.service;
 
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
 
@@ -21,6 +24,7 @@ import de.schildbach.wallet.Constants;
 import de.schildbach.wallet.ui.send.FeeCategory;
 import de.schildbach.wallet.ui.send.SendCoinsActivity;
 import de.schildbach.wallet.data.PaymentIntent;
+import de.schildbach.wallet.ui.send.TapToSendCoinsActivity;
 
 import static de.schildbach.wallet.ui.send.SendCoinsActivity.INTENT_EXTRA_PAYMENT_INTENT;
 
@@ -30,6 +34,10 @@ import static de.schildbach.wallet.ui.send.SendCoinsActivity.INTENT_EXTRA_PAYMEN
  */
 
 public class CardService extends HostApduService {
+    public static final String ACTION_CANCEL_TRANSACTION = CardService.class.getPackage().getName() + ".cancel_transaction";
+    public static final String ACTION_BROADCAST_TRANSACTION = CardService.class.getPackage().getName() + ".broadcast_transaction";
+    public static final String ACTION_BROADCAST_TRANSACTION_TX = "tx";
+
     private static final byte[] SELECT_2PAY_SYS_DDF01_CAPDU =
             HexStringToByteArray("00A404000E325041592E5359532E444446303100");
     private static final byte[] SELECT_2PAY_SYS_DDF01_RAPDU =
@@ -45,6 +53,8 @@ public class CardService extends HostApduService {
     private static final byte[] EGPO_HEADER = HexStringToByteArray("80E00000");
 
     private static final Logger log = LoggerFactory.getLogger(CardService.class);
+
+    private byte[] transaction = null;
 
     private static long BCDtoLong(byte[] bcd) {
         StringBuilder sb = new StringBuilder(bcd.length * 2);
@@ -106,15 +116,14 @@ public class CardService extends HostApduService {
     }
 
     private static String FormatAmount(long amount, Currency currency) {
-        return String.format(Locale.getDefault(), "%.2f %s",
-                (float)amount / Math.pow(10, currency.getDefaultFractionDigits()),
-                currency.getSymbol());
+        return String.format(Locale.getDefault(), "%s%.2f", currency.getSymbol(),
+                (float)amount / Math.pow(10, currency.getDefaultFractionDigits()));
     }
 
     private static String BuildPaymentIntentMemo(String merchant, byte transactionType, long amountAuthorized, long amountOther, Currency currency) {
         switch (transactionType) {
             case 0x00:
-                return FormatAmount(amountAuthorized, currency) + " requested by " + merchant +
+                return FormatAmount(amountAuthorized, currency) +
                         " for purchase of goods or services.";
             default:
                 return "Unknown Transaction Type: " + transactionType;
@@ -122,10 +131,54 @@ public class CardService extends HostApduService {
     }
 
     @Override
-    public void onDeactivated(int reason) {}
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        final String action = intent.getAction();
+
+        log.info("transactionReceiver.onStartCommand(" + intent.getAction() + ")");
+
+        if (ACTION_BROADCAST_TRANSACTION.equals(action)) {
+            transaction = intent.getByteArrayExtra(ACTION_BROADCAST_TRANSACTION_TX);
+        } else if (ACTION_CANCEL_TRANSACTION.equals(action)) {
+            transaction = null;
+        }
+
+        return START_STICKY;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+
+        log.info("onCreate: " + ACTION_BROADCAST_TRANSACTION);
+
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(ACTION_BROADCAST_TRANSACTION);
+        intentFilter.addAction(ACTION_CANCEL_TRANSACTION);
+        getApplication().registerReceiver(transactionReceiver, intentFilter);
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+
+        log.info("onDestroy");
+
+        getApplication().unregisterReceiver(transactionReceiver);
+    }
+
+    @Override
+    public void onDeactivated(int reason) {
+        log.info("onDeactivated");
+    }
 
     @Override
     public byte[] processCommandApdu(byte[] commandApdu, Bundle extras) {
+        if (transaction != null) {
+            log.info("processCommandApdu. transaction: " + transaction.toString());
+        } else {
+            log.info("processCommandApdu. transaction: none");
+        }
+
         if (Arrays.equals(SELECT_2PAY_SYS_DDF01_CAPDU, commandApdu)) {
             return SELECT_2PAY_SYS_DDF01_RAPDU;
         } else if (Arrays.equals(SELECT_BITCOIN_CAPDU, commandApdu)) {
@@ -142,11 +195,9 @@ public class CardService extends HostApduService {
             Coin amount = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 148, 156));
             Coin feePerKiB = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 156, 164));
             Address address = new Address(Constants.NETWORK_PARAMETERS, (int)commandApdu[164], Arrays.copyOfRange(commandApdu, 165, 185));
-            String memo = "Payment of " + amountAuthorized + currency.getDisplayName() + "requested.";
-            PaymentIntent paymentIntent = new PaymentIntent(PaymentIntent.Standard.BIP70, null, null, buildSimplePayTo(amount, address),
+            PaymentIntent paymentIntent = new PaymentIntent(PaymentIntent.Standard.BIP70, merchantNameAndLocation, null, buildSimplePayTo(amount, address),
                     BuildPaymentIntentMemo(merchantNameAndLocation, transactionType, amountAuthorized, amountOther, currency),
                     null, null, null, null);
-            Intent intent = new Intent(CardService.this, SendCoinsActivity.class);
 
             log.info("             Amount, Authorized: " + amountAuthorized);
             log.info("                  Amount, Other: " + amountOther);
@@ -165,8 +216,11 @@ public class CardService extends HostApduService {
             log.info("                        Address: " + address.toBase58());
             log.info("                 Payment Intent: " + paymentIntent.toString());
 
-            SendCoinsActivity.start(CardService.this, paymentIntent, FeeCategory.NORMAL,
-                                                                     Intent.FLAG_ACTIVITY_NEW_TASK);
+
+            TapToSendCoinsActivity.start(CardService.this, paymentIntent, feePerKiB);
+
+            /* SendCoinsActivity.start(CardService.this, paymentIntent, FeeCategory.NORMAL,
+                                                                     Intent.FLAG_ACTIVITY_NEW_TASK); */
 
             return COMMAND_NOT_ALLOWED;
         } else {
@@ -187,4 +241,19 @@ public class CardService extends HostApduService {
         }
         return data;
     }
+
+    private final BroadcastReceiver transactionReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(final Context context, final Intent intent) {
+            final String action = intent.getAction();
+
+            log.info("transactionReceiver.onReceive(" + intent.getAction() + ")");
+
+            if (ACTION_BROADCAST_TRANSACTION.equals(action)) {
+                transaction = intent.getByteArrayExtra(ACTION_BROADCAST_TRANSACTION_TX);
+            } else if (ACTION_CANCEL_TRANSACTION.equals(action)) {
+                transaction = null;
+            }
+        }
+    };
 }

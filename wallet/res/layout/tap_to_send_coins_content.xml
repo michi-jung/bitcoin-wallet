@@ -1,0 +1,220 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_weight="1">
+
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="@dimen/list_entry_padding_vertical"
+        android:layout_marginLeft="@dimen/list_entry_padding_horizontal"
+        android:layout_marginRight="@dimen/list_entry_padding_horizontal"
+        android:layout_marginTop="@dimen/list_entry_padding_vertical"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:id="@+id/tap_to_send_coins_payee_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="@dimen/list_entry_padding_vertical"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/send_coins_fragment_receiving_address_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tap_to_send_coins_payee_name"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left"
+                android:layout_marginLeft="@dimen/list_entry_padding_horizontal"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="3"
+                android:singleLine="false" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/tap_to_send_coins_memo_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_marginBottom="@dimen/list_entry_padding_vertical"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/tap_to_send_coins_payment_reason_label"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tap_to_send_coins_memo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="left"
+                android:layout_marginLeft="@dimen/list_entry_padding_horizontal"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="3"
+                android:singleLine="false" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="@dimen/list_entry_padding_vertical"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <ImageView
+                android:id="@+id/imageView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_margin="@dimen/list_entry_padding_vertical_lax"
+                android:layout_weight="1"
+                android:adjustViewBounds="false"
+                android:cropToPadding="false"
+                android:src="@drawable/contactless_logo" />
+
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/tap_to_send_coins_amount_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/send_coins_fragment_amount_label"
+                android:textSize="@dimen/font_size_small"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:divider="@drawable/divider_currency"
+                android:orientation="horizontal"
+                android:showDividers="middle">
+
+                <de.schildbach.wallet.ui.CurrencyAmountView
+                    android:id="@+id/tap_to_send_coins_amount_btc"
+                    android:layout_width="0px"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <EditText
+                        android:id="@+id/tap_to_send_coins_amount_btc_edittext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:imeOptions="flagNoExtractUi"
+                        android:textSize="@dimen/font_size_large"
+                        tools:ignore="TextFields" />
+                </de.schildbach.wallet.ui.CurrencyAmountView>
+
+                <de.schildbach.wallet.ui.CurrencyAmountView
+                    android:id="@+id/tap_to_send_coins_amount_local"
+                    android:layout_width="0px"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <EditText
+                        android:id="@+id/tap_to_send_coins_amount_local_edittext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:imeOptions="flagNoExtractUi"
+                        android:textSize="@dimen/font_size_large"
+                        tools:ignore="TextFields" />
+                </de.schildbach.wallet.ui.CurrencyAmountView>
+            </LinearLayout>
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/tap_to_send_coins_fees_group"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/tap_to_send_coins_fees_label"
+                android:textSize="@dimen/font_size_small"
+                android:textStyle="bold" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:divider="@drawable/divider_currency"
+                android:orientation="horizontal"
+                android:showDividers="middle">
+
+                <de.schildbach.wallet.ui.CurrencyAmountView
+                    android:id="@+id/tap_to_send_coins_fees_btc"
+                    android:layout_width="0px"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <EditText
+                        android:id="@+id/tap_to_send_coins_fees_btc_edittext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:imeOptions="flagNoExtractUi"
+                        android:textSize="@dimen/font_size_large"
+                        tools:ignore="TextFields" />
+                </de.schildbach.wallet.ui.CurrencyAmountView>
+
+                <de.schildbach.wallet.ui.CurrencyAmountView
+                    android:id="@+id/tap_to_send_coins_fees_local"
+                    android:layout_width="0px"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1">
+
+                    <EditText
+                        android:id="@+id/tap_to_send_coins_fees_local_edittext"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:imeOptions="flagNoExtractUi"
+                        android:textSize="@dimen/font_size_large"
+                        tools:ignore="TextFields" />
+                </de.schildbach.wallet.ui.CurrencyAmountView>
+            </LinearLayout>
+        </LinearLayout>
+
+        <Space
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/font_size_huge"
+            android:layout_weight="1" />
+
+        <Button
+            android:id="@+id/tap_to_send_bitcoins_cancel"
+            style="?android:attr/buttonBarButtonStyle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="?android:attr/selectableItemBackground"
+            android:text="@string/button_cancel"
+            android:textSize="@dimen/font_size_small" />
+    </LinearLayout>
+</ScrollView>
+

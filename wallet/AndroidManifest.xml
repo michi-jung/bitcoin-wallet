@@ -132,6 +132,12 @@
             </intent-filter>
         </activity>
         <activity
+            android:name="de.schildbach.wallet.ui.send.TapToSendCoinsActivity"
+            android:label="Tap to Send Bitcoins"
+            android:theme="@style/My.Theme.ChildActivity"
+            android:windowSoftInputMode="stateHidden">
+        </activity>
+        <activity
             android:name="de.schildbach.wallet.ui.SendCoinsQrActivity"
             android:configChanges="keyboard|keyboardHidden"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" >
@@ -248,6 +254,9 @@
             <intent-filter>
                 <action android:name="android.nfc.cardemulation.action.HOST_APDU_SERVICE" />
                 <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="de.schildbach.wallet.service.broadcast_transaction" />
             </intent-filter>
             <meta-data
                 android:name="android.nfc.cardemulation.host_apdu_service"
