@@ -1152,6 +1152,7 @@ public final class SendCoinsFragment extends Fragment {
 
     private void handleFeeCategory(final FeeCategory feeCategory) {
         this.feeCategory = feeCategory;
+        log.info("switching to {} fee category", feeCategory);
 
         updateView();
         handler.post(dryrunRunnable);
@@ -1287,7 +1288,11 @@ public final class SendCoinsFragment extends Fragment {
 
             hintView.setVisibility(View.GONE);
             if (state == State.INPUT) {
-                if (paymentIntent.mayEditAddress() && validatedAddress == null
+                if (blockchainState != null && blockchainState.replaying) {
+                    hintView.setTextColor(getResources().getColor(R.color.fg_error));
+                    hintView.setVisibility(View.VISIBLE);
+                    hintView.setText(R.string.send_coins_fragment_hint_replaying);
+                } else if (paymentIntent.mayEditAddress() && validatedAddress == null
                         && !receivingAddressView.getText().toString().trim().isEmpty()) {
                     hintView.setTextColor(getResources().getColor(R.color.fg_error));
                     hintView.setVisibility(View.VISIBLE);
@@ -1304,20 +1309,21 @@ public final class SendCoinsFragment extends Fragment {
                         hintView.setText(getString(R.string.send_coins_fragment_hint_empty_wallet_failed));
                     else
                         hintView.setText(dryrunException.toString());
-                } else if (blockchainState != null && blockchainState.replaying) {
-                    hintView.setTextColor(getResources().getColor(R.color.fg_error));
-                    hintView.setVisibility(View.VISIBLE);
-                    hintView.setText(R.string.send_coins_fragment_hint_replaying);
                 } else if (dryrunTransaction != null && dryrunTransaction.getFee() != null) {
-                    hintView.setTextColor(getResources().getColor(R.color.fg_insignificant));
                     hintView.setVisibility(View.VISIBLE);
                     final int hintResId;
-                    if (feeCategory == FeeCategory.ECONOMIC)
+                    final int colorResId;
+                    if (feeCategory == FeeCategory.ECONOMIC) {
                         hintResId = R.string.send_coins_fragment_hint_fee_economic;
-                    else if (feeCategory == FeeCategory.PRIORITY)
+                        colorResId = R.color.fg_less_significant;
+                    } else if (feeCategory == FeeCategory.PRIORITY) {
                         hintResId = R.string.send_coins_fragment_hint_fee_priority;
-                    else
+                        colorResId = R.color.fg_less_significant;
+                    } else {
                         hintResId = R.string.send_coins_fragment_hint_fee;
+                        colorResId = R.color.fg_insignificant;
+                    }
+                    hintView.setTextColor(getResources().getColor(colorResId));
                     hintView.setText(getString(hintResId, btcFormat.format(dryrunTransaction.getFee())));
                 } else if (paymentIntent.mayEditAddress() && validatedAddress != null
                         && wallet.isPubKeyHashMine(validatedAddress.address.getHash160())) {
