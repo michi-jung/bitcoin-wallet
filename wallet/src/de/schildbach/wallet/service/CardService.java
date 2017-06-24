@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.nfc.cardemulation.HostApduService;
 import android.os.Bundle;
+import android.support.v4.content.LocalBroadcastManager;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -37,6 +38,7 @@ public class CardService extends HostApduService {
     public static final String ACTION_CANCEL_TRANSACTION = CardService.class.getPackage().getName() + ".cancel_transaction";
     public static final String ACTION_BROADCAST_TRANSACTION = CardService.class.getPackage().getName() + ".broadcast_transaction";
     public static final String ACTION_BROADCAST_TRANSACTION_TX = "tx";
+    public static final String ACTION_BROADCAST_TRANSACTION_TX_ID = "tx_id";
 
     private static final byte[] SELECT_2PAY_SYS_DDF01_CAPDU =
             HexStringToByteArray("00A404000E325041592E5359532E444446303100");
@@ -50,11 +52,15 @@ public class CardService extends HostApduService {
                     "6F468407426974636F696EA53B9F38169F02069F03069F4E509F66045F2A029A039C019F3704BF0C1FD21D104761739001010010FFFF0112170158014254434F00000000000000009000");
     private static final byte[] FILE_NOT_FOUND_RAPDU = HexStringToByteArray("6A82");
     private static final byte[] COMMAND_NOT_ALLOWED = HexStringToByteArray("6986");
+    private static final byte[] ONLINE_REQUEST_RAPDU = HexStringToByteArray("77369F10050000000020570F4761739001010010D19122011143885F340101820220009F360200179F2608435259505447524D9F6C0200409000");
     private static final byte[] EGPO_HEADER = HexStringToByteArray("80E00000");
+    private static final byte[] READ_IDS_RECORD_1_CAPDU =
+            HexStringToByteArray("00B2015C00");
 
     private static final Logger log = LoggerFactory.getLogger(CardService.class);
 
     private byte[] transaction = null;
+    private byte[] txnId = null;
 
     private static long BCDtoLong(byte[] bcd) {
         StringBuilder sb = new StringBuilder(bcd.length * 2);
@@ -138,8 +144,10 @@ public class CardService extends HostApduService {
 
         if (ACTION_BROADCAST_TRANSACTION.equals(action)) {
             transaction = intent.getByteArrayExtra(ACTION_BROADCAST_TRANSACTION_TX);
+            txnId = intent.getByteArrayExtra(ACTION_BROADCAST_TRANSACTION_TX_ID);
         } else if (ACTION_CANCEL_TRANSACTION.equals(action)) {
             transaction = null;
+            txnId = null;
         }
 
         return START_STICKY;
@@ -182,47 +190,69 @@ public class CardService extends HostApduService {
         if (Arrays.equals(SELECT_2PAY_SYS_DDF01_CAPDU, commandApdu)) {
             return SELECT_2PAY_SYS_DDF01_RAPDU;
         } else if (Arrays.equals(SELECT_BITCOIN_CAPDU, commandApdu)) {
-            return SELECT_BITCOIN_RAPDU;
-        } else if (Arrays.equals(EGPO_HEADER, Arrays.copyOfRange(commandApdu, 0, 4))) {
-            long amountAuthorized = BCDtoLong(Arrays.copyOfRange(commandApdu, 7, 13));
-            long amountOther = BCDtoLong(Arrays.copyOfRange(commandApdu, 13, 19));
-            String merchantNameAndLocation = ANStoString(Arrays.copyOfRange(commandApdu, 19, 99));
-            byte[] terminalTransactionQualifiers = Arrays.copyOfRange(commandApdu, 99, 103);
-            Currency currency = ISO4217BCDtoCurrency(Arrays.copyOfRange(commandApdu, 103, 105));
-            Calendar transactionDate = YMDtoCalendar(Arrays.copyOfRange(commandApdu, 105, 108));
-            byte transactionType = commandApdu[108];
-            byte[] readerUnpredictableNumber = Arrays.copyOfRange(commandApdu, 108, 112);
-            Coin amount = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 148, 156));
-            Coin feePerKiB = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 156, 164));
-            Address address = new Address(Constants.NETWORK_PARAMETERS, (int)commandApdu[164], Arrays.copyOfRange(commandApdu, 165, 185));
-            PaymentIntent paymentIntent = new PaymentIntent(PaymentIntent.Standard.BIP70, merchantNameAndLocation, null, buildSimplePayTo(amount, address),
-                    BuildPaymentIntentMemo(merchantNameAndLocation, transactionType, amountAuthorized, amountOther, currency),
-                    null, null, null, null);
+            byte[] rapdu = SELECT_BITCOIN_RAPDU.clone();
 
-            log.info("             Amount, Authorized: " + amountAuthorized);
-            log.info("                  Amount, Other: " + amountOther);
-            log.info("     Merchant Name and Location: " + merchantNameAndLocation);
-            log.info("Terminal Transaction Qualifiers: " + Arrays.toString(terminalTransactionQualifiers));
-            log.info("                       Currency: " + currency.getDisplayName());
-            log.info("               Transaction Date: " +
+            if (txnId != null) {
+                rapdu[64] = txnId[0];
+                rapdu[65] = txnId[1];
+                rapdu[66] = txnId[2];
+                rapdu[67] = txnId[3];
+                rapdu[68] = txnId[4];
+            }
+
+            return rapdu;
+        } else if (Arrays.equals(EGPO_HEADER, Arrays.copyOfRange(commandApdu, 0, 4))) {
+            if (transaction == null) {
+                long amountAuthorized = BCDtoLong(Arrays.copyOfRange(commandApdu, 7, 13));
+                long amountOther = BCDtoLong(Arrays.copyOfRange(commandApdu, 13, 19));
+                String merchantNameAndLocation = ANStoString(Arrays.copyOfRange(commandApdu, 19, 99));
+                byte[] terminalTransactionQualifiers = Arrays.copyOfRange(commandApdu, 99, 103);
+                Currency currency = ISO4217BCDtoCurrency(Arrays.copyOfRange(commandApdu, 103, 105));
+                Calendar transactionDate = YMDtoCalendar(Arrays.copyOfRange(commandApdu, 105, 108));
+                byte transactionType = commandApdu[108];
+                byte[] readerUnpredictableNumber = Arrays.copyOfRange(commandApdu, 108, 112);
+                Coin amount = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 149, 157));
+                Coin feePerKiB = LittleEndianToCoin(Arrays.copyOfRange(commandApdu, 157, 165));
+                Address address = new Address(Constants.NETWORK_PARAMETERS, (int) commandApdu[165], Arrays.copyOfRange(commandApdu, 166, 186));
+                PaymentIntent paymentIntent = new PaymentIntent(PaymentIntent.Standard.BIP70, merchantNameAndLocation, null, buildSimplePayTo(amount, address),
+                        BuildPaymentIntentMemo(merchantNameAndLocation, transactionType, amountAuthorized, amountOther, currency),
+                        null, null, null, null);
+
+                log.info("             Amount, Authorized: " + amountAuthorized);
+                log.info("                  Amount, Other: " + amountOther);
+                log.info("     Merchant Name and Location: " + merchantNameAndLocation);
+                log.info("Terminal Transaction Qualifiers: " + Arrays.toString(terminalTransactionQualifiers));
+                log.info("                       Currency: " + currency.getDisplayName());
+                log.info("               Transaction Date: " +
                         transactionDate.get(Calendar.YEAR) + "/" +
                         transactionDate.get(Calendar.MONTH) + "/" +
                         transactionDate.get(Calendar.DAY_OF_MONTH)
-            );
-            log.info("               Transaction Type: " + transactionType);
-            log.info("    Reader Unpredictable Number: " + Arrays.toString(readerUnpredictableNumber));
-            log.info("             Amount, Authorized: " + amount.toFriendlyString());
-            log.info("               Fee per Kilobyte: " + feePerKiB.toFriendlyString());
-            log.info("                        Address: " + address.toBase58());
-            log.info("                 Payment Intent: " + paymentIntent.toString());
+                );
+                log.info("               Transaction Type: " + transactionType);
+                log.info("    Reader Unpredictable Number: " + Arrays.toString(readerUnpredictableNumber));
+                log.info("             Amount, Authorized: " + amount.toFriendlyString());
+                log.info("               Fee per Kilobyte: " + feePerKiB.toFriendlyString());
+                log.info("                        Address: " + address.toBase58());
+                log.info("                 Payment Intent: " + paymentIntent.toString());
 
 
-            TapToSendCoinsActivity.start(CardService.this, paymentIntent, feePerKiB);
-
-            /* SendCoinsActivity.start(CardService.this, paymentIntent, FeeCategory.NORMAL,
+                TapToSendCoinsActivity.start(CardService.this, paymentIntent, feePerKiB, Arrays.copyOfRange(commandApdu, 193, 198));
+                /* SendCoinsActivity.start(CardService.this, paymentIntent, FeeCategory.NORMAL,
                                                                      Intent.FLAG_ACTIVITY_NEW_TASK); */
 
-            return COMMAND_NOT_ALLOWED;
+                return COMMAND_NOT_ALLOWED;
+            } else {
+                final Intent intent = new Intent(TapToSendCoinsActivity.ACTION_CONFIRM_TXN);
+                LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
+                txnId = null;
+                transaction = null;
+                return ONLINE_REQUEST_RAPDU;
+            }
+        } else if (Arrays.equals(READ_IDS_RECORD_1_CAPDU, commandApdu)) {
+            byte[] rapdu = Arrays.copyOf(transaction, transaction.length + 2);
+            rapdu[transaction.length] = (byte)0x90;
+            rapdu[transaction.length + 1] = (byte)0x00;
+            return rapdu;
         } else {
             return FILE_NOT_FOUND_RAPDU;
         }

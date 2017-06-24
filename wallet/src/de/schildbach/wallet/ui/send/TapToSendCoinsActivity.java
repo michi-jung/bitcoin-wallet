@@ -2,8 +2,10 @@ package de.schildbach.wallet.ui.send;
 
 import android.app.Activity;
 import android.app.LoaderManager;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.Loader;
 import android.database.Cursor;
 import android.os.Bundle;
@@ -38,8 +40,10 @@ import de.schildbach.wallet_test.R;
  */
 
 public class TapToSendCoinsActivity extends Activity {
+    public static final String ACTION_CONFIRM_TXN = TapToSendCoinsActivity.class.getPackage().getName() + ".confirm_txn";
     public static final String INTENT_EXTRA_PAYMENT_INTENT = "payment_intent";
     public static final String INTENT_EXTRA_FEE_PER_KIB = "fee_per_kib";
+    public static final String INTENT_EXTRA_TXN_ID = "txn_id";
     private View payeeGroup;
     private TextView payeeNameView;
     private View memoGroup;
@@ -53,20 +57,34 @@ public class TapToSendCoinsActivity extends Activity {
     private LoaderManager loaderManager;
     private Activity activity = this;
     private static final Logger log = LoggerFactory.getLogger(TapToSendCoinsActivity.class);
+    private BroadcastReceiver confirmTxnReceiver = null;
+    private SendRequest sendRequest = null;
 
     private static final int ID_RATE_LOADER = 1;
 
-    public static void start(final Context context, PaymentIntent paymentIntent, Coin feePerKiB) {
+    public static void start(final Context context, PaymentIntent paymentIntent, Coin feePerKiB, byte[] txnId) {
         final Intent intent = new Intent(context, TapToSendCoinsActivity.class);
         intent.putExtra(INTENT_EXTRA_PAYMENT_INTENT, paymentIntent);
         intent.putExtra(INTENT_EXTRA_FEE_PER_KIB, feePerKiB.longValue());
+        intent.putExtra(INTENT_EXTRA_TXN_ID, txnId);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         context.startActivity(intent);
+    }
+
+    public void onDestroy() {
+        super.onDestroy();
+
+        if (confirmTxnReceiver != null) {
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(confirmTxnReceiver);
+            confirmTxnReceiver = null;
+        }
     }
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        log.debug("onCreate");
 
         application = (WalletApplication)getApplication();
         config = application.getConfiguration();
@@ -74,7 +92,7 @@ public class TapToSendCoinsActivity extends Activity {
 
         paymentIntent = getIntent().getParcelableExtra(INTENT_EXTRA_PAYMENT_INTENT);
 
-        SendRequest sendRequest = paymentIntent.toSendRequest();
+        sendRequest = paymentIntent.toSendRequest();
         sendRequest.feePerKb = Coin.valueOf(getIntent().getLongExtra(INTENT_EXTRA_FEE_PER_KIB, 0));
         sendRequest.memo = paymentIntent.memo;
         //sendRequest.exchangeRate = amountCalculatorLink.getExchangeRate();
@@ -147,9 +165,26 @@ public class TapToSendCoinsActivity extends Activity {
             }
         });
 
+        confirmTxnReceiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                log.info(intent.getAction());
+                final Intent broadcastTransaction = new Intent(CardService.ACTION_BROADCAST_TRANSACTION);
+                broadcastTransaction.setPackage(getPackageName());
+                stopService(broadcastTransaction);
+                application.getWallet().commitTx(sendRequest.tx);
+                sendRequest = null;
+                finish();
+            }
+        };
+
+        IntentFilter intentFilter = new IntentFilter(ACTION_CONFIRM_TXN);
+        LocalBroadcastManager.getInstance(this).registerReceiver(confirmTxnReceiver, intentFilter);
+
         final Intent broadcastTransaction = new Intent(CardService.ACTION_BROADCAST_TRANSACTION);
         broadcastTransaction.setPackage(getPackageName());
         broadcastTransaction.putExtra(CardService.ACTION_BROADCAST_TRANSACTION_TX, sendRequest.tx.bitcoinSerialize());
+        broadcastTransaction.putExtra(CardService.ACTION_BROADCAST_TRANSACTION_TX_ID, getIntent().getByteArrayExtra(INTENT_EXTRA_TXN_ID));
         startService(broadcastTransaction);
         //LocalBroadcastManager.getInstance(this).sendBroadcast(broadcastTransaction);
 
